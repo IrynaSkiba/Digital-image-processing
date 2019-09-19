@@ -188,8 +188,14 @@ public class MyImage {
         int blue, red, green;
         ArrayList<Integer> arrayList = new ArrayList<>(9);
         MyImage temp = new MyImage(width, height, sourceImage);
-        for (int x = 1; x < width - 1; x++)
-            for (int y = 1; y < height - 1; y++) {
+        for (int x = 0; x < width; x++)
+            for (int y = 0; y < height; y++) {
+                if (x == 0 || y == 0 || x == width - 1 || y == height - 1) {
+                    Color newColor = new Color(0, 0, 0);
+                    sourceImage.setRGB(x, y, newColor.getRGB());
+                    continue;
+                }
+
                 arrayList.add(((temp.getSourceImage().getRGB(x - 1, y - 1) & 0xff0000) >> 16));
                 arrayList.add(((temp.getSourceImage().getRGB(x - 1, y) & 0xff0000) >> 16));
                 arrayList.add(((temp.getSourceImage().getRGB(x - 1, y + 1) & 0xff0000) >> 16));
