@@ -7,6 +7,8 @@ import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashMap;
+import java.util.Map;
 
 public class MyImage {
     private int width;
@@ -41,8 +43,16 @@ public class MyImage {
         ImageIO.write(sourceImage, "jpg", output);
     }
 
+    public void toColor() {
+        for (int x = 0; x < width; x++)
+            for (int y = 0; y < height; y++)
+                if ((sourceImage.getRGB(x, y) & 0xff) != 0) {
+                    sourceImage.setRGB(x, y, sourceImage.getRGB(x, y) * 2 + 400);
+                }
+    }
+
     public void toBinary(int limit) {
-        int blue, red, green;
+        int red;
         for (int x = 0; x < width; x++)
             for (int y = 0; y < height; y++) {
 
@@ -51,16 +61,19 @@ public class MyImage {
                 if (color.getRed() <= limit) {
                     red = 0;
                 } else red = 255;
-               /* if (color.getGreen() <= limit) {
-                    green = 0;
-                } else green = 255;
-                if (color.getBlue() <= limit) {
-                    blue = 0;
-                } else blue = 255;*/
-
 
                 Color newColor = new Color(red, red, red);
                 sourceImage.setRGB(x, y, newColor.getRGB());
+            }
+    }
+
+    public void toSpecialBinary() {
+        for (int x = 0; x < width; x++)
+            for (int y = 0; y < height; y++) {
+                if ((sourceImage.getRGB(x, y) & 0xff) == 0) {
+                } else {
+                    sourceImage.setRGB(x, y, 1);
+                }
             }
     }
 
@@ -178,7 +191,7 @@ public class MyImage {
             }
     }
 
-    public void dilation(){
+    public void dilation() {
         int newBlue, newRed, newGreen;
         MyImage temp = new MyImage(width, height, sourceImage);
         for (int x = 0; x < width; x++)
@@ -209,17 +222,126 @@ public class MyImage {
                 sourceImage.setRGB(x, y, new Color(newBlue, newBlue, newBlue).getRGB());
             }
     }
-//
-//                    if ((temp.getSourceImage().getRGB(x - 1, y - 1) & 0xff) == WHITE ||
-//            (temp.getSourceImage().getRGB(x - 1, y) & 0xff) == WHITE ||
-//            (temp.getSourceImage().getRGB(x - 1, y + 1) & 0xff) == WHITE ||
-//            (temp.getSourceImage().getRGB(x, y - 1) & 0xff) == WHITE ||
-//            (temp.getSourceImage().getRGB(x, y) & 0xff) == WHITE ||
-//            (temp.getSourceImage().getRGB(x, y + 1) & 0xff) == WHITE ||
-//            (temp.getSourceImage().getRGB(x + 1, y - 1) & 0xff) == WHITE ||
-//            (temp.getSourceImage().getRGB(x + 1, y) & 0xff) == WHITE ||
-//            (temp.getSourceImage().getRGB(x + 1, y + 1) & 0xff) == WHITE) {
-//        newBlue = WHITE;
-//    } else newBlue = BLACK;
 
+    public void labeling(BufferedImage source, BufferedImage map) {
+        for (int x = 0; x < width; x++) {
+            for (int y = 0; y < height; y++) {
+                Color newColor = new Color(0, 0, 0);
+                map.setRGB(x, y, newColor.getRGB());
+            }
+        }
+
+        int l = 1;
+        for (int y = 0; y < height; y++)
+            for (int x = 0; x < width; x++) {
+                fill(source, map, x, y, l++);
+            }
+    }
+
+    public void fill(BufferedImage source, BufferedImage map, int x, int y, int l) {
+        if (((map.getRGB(x, y) & 0xff) == 0) && ((source.getRGB(x, y) & 0xff) == 1)) {
+            map.setRGB(x, y, l);
+            if (x > 0)
+                fill(source, map, x - 1, y, l);
+            if (x < width - 1)
+                fill(source, map, x + 1, y, l);
+            if (y > 0)
+                fill(source, map, x, y - 1, l);
+            if (y < height - 1)
+                fill(source, map, x, y + 1, l);
+        }
+    }
+
+    public HashMap<Integer, Integer> getAreas() {
+        HashMap<Integer, Integer> areas = new HashMap<>();
+        for (int y = 0; y < height; y++)
+            for (int x = 0; x < width; x++) {
+                int pixel = sourceImage.getRGB(x, y) & 0xff;
+                if (pixel == 0) continue;
+                if (areas.containsKey(pixel)) {
+                    areas.replace(pixel, areas.get(pixel) + 1);
+                } else {
+                    areas.put(pixel, 1);
+                }
+            }
+        return areas;
+    }
+
+    public HashMap<Integer, Integer> getPerimeters() {
+        HashMap<Integer, Integer> perimeters = new HashMap<>();
+        for (int y = 1; y < height - 1; y++)
+            for (int x = 1; x < width - 1; x++) {
+                int pixel = sourceImage.getRGB(x, y) & 0xff;
+                if (pixel == 0) continue;
+                if (!perimeters.containsKey(pixel))
+                    perimeters.put(pixel, 1);
+                if (((sourceImage.getRGB(x - 1, y) & 0xff) == 0 ||
+                        (sourceImage.getRGB(x, y - 1) & 0xff) == 0 ||
+                        (sourceImage.getRGB(x, y + 1) & 0xff) == 0 ||
+                        (sourceImage.getRGB(x + 1, y) & 0xff) == 0)) {
+                    perimeters.replace(pixel, perimeters.get(pixel) + 1);
+                }
+            }
+        return perimeters;
+    }
+
+    public HashMap<Integer, Double> getCompactness(HashMap<Integer, Integer> perimeters, HashMap<Integer, Integer> areas) {
+        HashMap<Integer, Double> compactness = new HashMap<>();
+        for (Map.Entry<Integer, Integer> entry : perimeters.entrySet()) {
+            double tmp = Math.pow(entry.getValue(), 2);
+            compactness.put(entry.getKey(), tmp / areas.get(entry.getKey()));
+        }
+        return compactness;
+    }
+
+    public HashMap<Integer, Double> getElongation() {
+        HashMap<Integer, Double> xCenter = new HashMap<>();
+        HashMap<Integer, Double> yCenter = new HashMap<>();
+        for (int y = 0; y < height; y++)
+            for (int x = 0; x < width; x++) {
+                int pixel = sourceImage.getRGB(x, y) & 0xff;
+                if (pixel == 0) continue;
+                if (xCenter.containsKey(pixel)) {
+                    xCenter.replace(pixel, xCenter.get(pixel) +/* pixel */ x);
+                    yCenter.replace(pixel, yCenter.get(pixel) + /*pixel */ y);
+                } else {
+                    xCenter.put(pixel, (double) /*pixel */ x);
+                    yCenter.put(pixel, (double) /*pixel */ y);
+                }
+            }
+        for (Map.Entry<Integer, Double> entry : xCenter.entrySet()) {
+            xCenter.replace(entry.getKey(), entry.getValue() / getAreas().get(entry.getKey()));
+            yCenter.replace(entry.getKey(), entry.getValue() / getAreas().get(entry.getKey()));
+        }
+
+        HashMap<Integer, Double> m02 = new HashMap<>();
+        HashMap<Integer, Double> m20 = new HashMap<>();
+        HashMap<Integer, Double> m11 = new HashMap<>();
+
+        for (int y = 0; y < height; y++)
+            for (int x = 0; x < width; x++) {
+                int pixel = sourceImage.getRGB(x, y) & 0xff;
+                if (pixel == 0) continue;
+                if (m20.containsKey(pixel)) {
+                    m02.replace(pixel, m02.get(pixel) + Math.pow(x - xCenter.get(pixel), 0) * Math.pow(y - yCenter.get(pixel), 2) /* pixel*/);
+                    m20.replace(pixel, m20.get(pixel) + Math.pow(x - xCenter.get(pixel), 2) * Math.pow(y - yCenter.get(pixel), 0) /* pixel*/);
+                    m11.replace(pixel, m11.get(pixel) + Math.pow(x - xCenter.get(pixel), 1) * Math.pow(y - yCenter.get(pixel), 1) /* pixel*/);
+                } else {
+                    m02.put(pixel, Math.pow(x - xCenter.get(pixel), 0) * Math.pow(y - yCenter.get(pixel), 2) /* pixel*/);
+                    m20.put(pixel, Math.pow(x - xCenter.get(pixel), 2) * Math.pow(y - yCenter.get(pixel), 0) /* pixel*/);
+                    m11.put(pixel, Math.pow(x - xCenter.get(pixel), 1) * Math.pow(y - yCenter.get(pixel), 1) /* pixel*/);
+                }
+            }
+
+        HashMap<Integer, Double> elongation = new HashMap<>();
+        for (Map.Entry<Integer, Double> entry : m02.entrySet()) {
+            int key = entry.getKey();
+            double el = (m20.get(key) + m02.get(key) +
+                    Math.sqrt(Math.pow(m20.get(key) - m02.get(key), 2) + 4 * Math.pow(m11.get(key), 2))) /
+                    (m20.get(key) + m02.get(key) -
+                            Math.sqrt(Math.pow(m20.get(key) - m02.get(key), 2) + 4 * Math.pow(m11.get(key), 2)));
+            elongation.put(key, el);
+        }
+        return elongation;
+    }
 }

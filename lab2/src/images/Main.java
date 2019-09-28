@@ -1,43 +1,68 @@
 package images;
 
-import java.awt.*;
 import java.io.IOException;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.Scanner;
 
 public class Main {
     public static void main(String args[]) throws IOException {
-        MyImage greyImage = new MyImage();
-        greyImage.readImage("1.jpg");
-        greyImage.toGrey();
-        greyImage.toBinary(180);
-        greyImage.writeImage("binary.jpg");
+//        Scanner inp = new Scanner(System.in);
+//        System.out.print("Input threshold : ");
+//        int threshold = inp.nextInt();
 
-        greyImage.medianFilter();
+        Scanner in = new Scanner(System.in);
+        System.out.print("Input clusters quantity : ");
+        int k = in.nextInt();
 
-        greyImage.erosion();
-        greyImage.erosion();
+        MyImage image = new MyImage();
+        image.readImage("1.jpg");
+        image.toGrey();
+        image.toBinary(180);
+        image.writeImage("binary.jpg");
 
-        greyImage.medianFilter();
-        greyImage.medianFilter();
+        image.medianFilter();
+        image.erosion();
+        image.erosion();
 
-        greyImage.dilation();
-        greyImage.dilation();
+        image.medianFilter();
+        image.medianFilter();
 
-        greyImage.medianFilter();
+        image.dilation();
+        image.dilation();
+        image.medianFilter();
+        image.writeImage("result.jpg");
 
-        greyImage.writeImage("result.jpg");
+        //фон заполняем 0, а объекты 1
+        image.toSpecialBinary();
 
+        MyImage map = new MyImage();
+        map.readImage("2.jpg");
 
+        image.labeling(image.getSourceImage(), map.getSourceImage());
+        map.toColor();
+        map.writeImage("color.jpg");
 
-        MyImage old = new MyImage();
-        old.readImage("1.jpg");
+        HashMap<Integer, Integer> areas = map.getAreas();
+        HashMap<Integer, Integer> perimeters = map.getPerimeters();
+        HashMap<Integer, Double> compactness = map.getCompactness(perimeters, areas);
+        HashMap<Integer, Double> elongation = map.getElongation();
 
-        Window window = new Window();
-        window.addHistogram(new Histogram(old, "binary"));
+        ArrayList<Point> points = new ArrayList<>(areas.size());
 
+        for (Integer key : areas.keySet()) {
+            Point p = new Point(areas.get(key), perimeters.get(key), compactness.get(key), elongation.get(key));
+            points.add(p);
+        }
 
+        KMedians medians = new KMedians(k, points);
+        medians.clusterAnalysis();
 
-           EventQueue.invokeLater(() -> {
-            //window.display();
-        });
+//        Window window = new Window();
+//        window.addHistogram(new Histogram(image, "binary"));
+//
+//        EventQueue.invokeLater(() -> {
+//            // window.display();
+//        });
     }
 }
