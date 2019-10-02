@@ -1,6 +1,8 @@
 # Intellij IDEA
 .idea/
 *.iml
+**/out
+**/META-INF
 
 # Compiled class file
 *.class
